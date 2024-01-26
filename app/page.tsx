@@ -6,7 +6,6 @@ import React from "react"
 
 export default async function HomePage() {
   const user = await currentUser()
-  console.log("This supposed to be the user", user)
   if (user) {
     redirect("/chat")
   }
