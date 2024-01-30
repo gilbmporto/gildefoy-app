@@ -13,8 +13,8 @@ datasource db {
 
 model User {
   id        String     @id
-  firstName String
-  lastName  String
+  firstName String?
+  lastName  String?
   email     String     @unique
   tours     UserTour[]
 }
@@ -48,4 +48,12 @@ model UserTour {
   @@id([userId, tourId])
   @@index([userId])
   @@index([tourId])
+}
+
+model Token {
+  clerkId              String   @id
+  tokens               Int      @default(10000)
+  createdAt            DateTime @default(now())
+  TokensEndedTimestamp Int?
+  tokensEnded          Boolean  @default(false)
 }

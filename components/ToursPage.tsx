@@ -22,7 +22,6 @@ export default function ToursPage() {
     },
   })
 
-  console.log(data)
   return (
     <>
       <form className="max-w-xl mb-12">

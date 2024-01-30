@@ -5,6 +5,8 @@ import { TourData } from "@/components/NewTour"
 import OpenAI from "openai"
 import prisma from "./db"
 import { User } from "@prisma/client"
+import { revalidatePath } from "next/cache"
+import { ChatCompletionMessage } from "openai/resources/index.mjs"
 
 const openAIModels = {
   gpt35: "gpt-3.5-turbo-1106",
@@ -58,8 +60,28 @@ const openai = new OpenAI({
   apiKey: process.env.GILDEFOY_GPT_API_KEY,
 })
 
-export const generateChatResponse = async (messages: Message[]) => {
+export const generateChatResponse = async (
+  messages: Message[],
+  userId: string
+) => {
   try {
+    // Check if user has enough tokens left
+    const tokens = await prisma.token.findUnique({
+      where: { clerkId: userId },
+    })
+
+    if (tokens && tokens.tokens < 300) {
+      const tokensWarningMessage: ChatCompletionMessage = {
+        content: `You don't have enough tokens left!`,
+        role: "system",
+      }
+
+      return {
+        message: tokensWarningMessage,
+        tokens: tokens.tokens,
+      }
+    }
+
     const response = await openai.chat.completions.create({
       messages: [
         {
@@ -70,12 +92,20 @@ export const generateChatResponse = async (messages: Message[]) => {
       ],
       model: openAIModels.gpt35,
       temperature: 0.7,
+      max_tokens: 500,
     })
-    console.log(response.choices[0].message)
-    console.log(response)
 
-    return response.choices[0].message
-  } catch (error) {
+    const tokensLeft = await subtractTokensFromUser(
+      userId,
+      response.usage?.total_tokens!
+    )
+
+    return {
+      message: response.choices[0].message!,
+      tokens: tokensLeft?.tokens!,
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
     return null
   }
 }
@@ -97,73 +127,263 @@ export async function createNewUser(user: User) {
         lastName: user.lastName,
       },
     })
+
     return newUser
   }
 }
 
-export const getSingleTour = async (tourId: string) => {
-  const tour = await prisma.tour.findUnique({
-    where: {
-      id: tourId,
-    },
-  })
-  if (!tour) {
+export async function fetchUserTokensById(userId: string) {
+  try {
+    const tokens = await prisma.token.findUnique({
+      where: {
+        clerkId: userId,
+      },
+    })
+    return tokens?.tokens
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
     return null
   }
-  return tour as AllToursJSON
+}
+
+export async function generateTokensForUser(userId: string) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    })
+    if (user) {
+      const tokens = await prisma.token.create({
+        data: {
+          clerkId: userId,
+        },
+      })
+      return { user, tokens }
+    } else {
+      return null
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
+    return null
+  }
+}
+
+export async function fetchOrGenerateTokens(userId: string) {
+  try {
+    const result = await fetchUserTokensById(userId)
+    if (result) {
+      return result
+    } else {
+      const result = await generateTokensForUser(userId)
+      return result?.tokens.tokens
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
+    return null
+  }
+}
+
+export async function incrementUserTokens(userId: string) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    })
+    if (user) {
+      const tokensRecord = await prisma.token.findUnique({
+        where: {
+          clerkId: userId,
+        },
+      })
+
+      if (!tokensRecord) {
+        return null
+      }
+
+      let multiplier = 1
+      const defaultTokenAmount = 1000
+      const maxMultiplier = 7
+
+      if (tokensRecord.TokensEndedTimestamp) {
+        const daysPassed = Math.floor(
+          (Date.now() / 1000 - tokensRecord.TokensEndedTimestamp) /
+            (60 * 60 * 24)
+        )
+        multiplier = Math.min(daysPassed, maxMultiplier)
+      }
+
+      const tokensToIncrement = defaultTokenAmount * multiplier
+
+      const tokens = await prisma.token.update({
+        where: {
+          clerkId: user.id,
+        },
+        data: {
+          tokens: {
+            set: tokensToIncrement,
+          },
+          tokensEnded: false,
+        },
+      })
+
+      return tokens
+    } else {
+      return null
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
+    return null
+  }
+}
+
+export async function allowToIncrementUserTokens(userId: string) {
+  try {
+    const tokens = await prisma.token.findUnique({
+      where: {
+        clerkId: userId,
+      },
+    })
+
+    console.log(tokens)
+
+    if (
+      tokens &&
+      tokens.tokens < 300 &&
+      tokens.tokensEnded &&
+      tokens.TokensEndedTimestamp &&
+      tokens.TokensEndedTimestamp + 86400 < Date.now() / 1000
+    ) {
+      return true
+    } else {
+      return false
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
+    return null
+  }
+}
+
+export async function subtractTokensFromUser(userId: string, amount: number) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    })
+    if (user) {
+      const tokens = await prisma.token.update({
+        where: {
+          clerkId: user.id,
+        },
+        data: {
+          tokens: {
+            decrement: amount,
+          },
+        },
+      })
+
+      revalidatePath("/profile")
+
+      if (tokens.tokens < 300 && !tokens.tokensEnded) {
+        const updatedToken = await prisma.token.update({
+          where: {
+            clerkId: user.id,
+          },
+          data: {
+            tokensEnded: true,
+            TokensEndedTimestamp: Date.now() / 1000,
+          },
+        })
+
+        revalidatePath("/profile")
+        return updatedToken
+      }
+
+      return tokens
+    } else {
+      return null
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
+    return null
+  }
+}
+
+export const getSingleTour = async (tourId: string) => {
+  try {
+    const tour = await prisma.tour.findUnique({
+      where: {
+        id: tourId,
+      },
+    })
+    if (!tour) {
+      return null
+    }
+    return tour as AllToursJSON
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
+    return null
+  }
 }
 
 export const getAllTours = async ({ userId, city, country }: SearchObject) => {
-  // Step 1: Get Tour IDs that match the criteria
-  let tourWhereClause = {}
-  if (city || country) {
-    tourWhereClause = {
-      OR: [
-        ...(city ? [{ city: { contains: city, mode: "insensitive" } }] : []),
-        ...(country
-          ? [{ country: { contains: country, mode: "insensitive" } }]
-          : []),
-      ],
+  try {
+    // Step 1: Get Tour IDs that match the criteria
+    let tourWhereClause = {}
+    if (city || country) {
+      tourWhereClause = {
+        OR: [
+          ...(city ? [{ city: { contains: city, mode: "insensitive" } }] : []),
+          ...(country
+            ? [{ country: { contains: country, mode: "insensitive" } }]
+            : []),
+        ],
+      }
     }
-  }
 
-  const matchingTours = await prisma.tour.findMany({
-    where: tourWhereClause,
-    select: {
-      id: true, // Select only the IDs
-    },
-  })
+    const matchingTours = await prisma.tour.findMany({
+      where: tourWhereClause,
+      select: {
+        id: true, // Select only the IDs
+      },
+    })
 
-  const tourIds = matchingTours.map((tour) => tour.id)
+    const tourIds = matchingTours.map((tour) => tour.id)
 
-  // Step 2: Use these IDs to find UserTour records
-  const userTours = await prisma.userTour.findMany({
-    where: {
-      userId: userId,
-      tourId: { in: tourIds }, // Filter UserTour records by these tour IDs
-    },
-    include: {
-      tour: {
-        select: {
-          id: true,
-          city: true,
-          country: true,
-          title: true,
-          description: true,
-          stops: true,
-          price: true,
-          style: true,
-          daytime: true,
+    // Step 2: Use these IDs to find UserTour records
+    const userTours = await prisma.userTour.findMany({
+      where: {
+        userId: userId,
+        tourId: { in: tourIds }, // Filter UserTour records by these tour IDs
+      },
+      include: {
+        tour: {
+          select: {
+            id: true,
+            city: true,
+            country: true,
+            title: true,
+            description: true,
+            stops: true,
+            price: true,
+            style: true,
+            daytime: true,
+          },
         },
       },
-    },
-  })
+    })
 
-  if (userTours.length === 0) {
+    if (userTours.length === 0) {
+      return null
+    }
+
+    return userTours.map((userTour) => userTour.tour) as AllToursJSON[]
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
     return null
   }
-
-  return userTours.map((userTour) => userTour.tour) as AllToursJSON[]
 }
 
 export const getExistingTour = async ({
@@ -174,47 +394,52 @@ export const getExistingTour = async ({
   daytime,
   userId,
 }: TourData) => {
-  const existingTour = await prisma.tour.findFirst({
-    where: {
-      city,
-      country,
-      price,
-      style,
-      daytime,
-    },
-    select: {
-      id: true,
-      city: true,
-      country: true,
-      title: true,
-      description: true,
-      stops: true,
-    },
-  })
-
-  if (existingTour) {
-    // Check if the user is already associated with this tour
-    const existingUserTour = await prisma.userTour.findUnique({
+  try {
+    const existingTour = await prisma.tour.findFirst({
       where: {
-        userId_tourId: {
-          userId: userId,
-          tourId: existingTour.id,
-        },
+        city,
+        country,
+        price,
+        style,
+        daytime,
+      },
+      select: {
+        id: true,
+        city: true,
+        country: true,
+        title: true,
+        description: true,
+        stops: true,
       },
     })
 
-    // If not, create a new UserTour association
-    if (!existingUserTour) {
-      await prisma.userTour.create({
-        data: {
-          userId: userId,
-          tourId: existingTour.id,
+    if (existingTour) {
+      // Check if the user is already associated with this tour
+      const existingUserTour = await prisma.userTour.findUnique({
+        where: {
+          userId_tourId: {
+            userId: userId,
+            tourId: existingTour.id,
+          },
         },
       })
-    }
 
-    return existingTour as TourJSON
-  } else {
+      // If not, create a new UserTour association
+      if (!existingUserTour) {
+        await prisma.userTour.create({
+          data: {
+            userId: userId,
+            tourId: existingTour.id,
+          },
+        })
+      }
+
+      return existingTour as TourJSON
+    } else {
+      return null
+    }
+  } catch (error: any) {
+    console.log(`${error.name}: ${error.message}`)
     return null
   }
 }
@@ -352,7 +577,7 @@ Also, if the country is "Brazil" or "Brasil", return the answer in brazilian por
       return null
     }
 
-    const tourFinalData = {
+    const tourFinalData: CompleteTourData = {
       city,
       country,
       title: tourData.tour.title,
@@ -364,7 +589,7 @@ Also, if the country is "Brazil" or "Brasil", return the answer in brazilian por
       userId: userId,
     }
 
-    return tourFinalData as CompleteTourData
+    return { tour: tourFinalData, tokens: response.usage?.total_tokens }
 
     // const newTour = await createNewTour(tourFinalData)
 

@@ -1,5 +1,4 @@
-import { wait } from "@/utils/actions"
-import { currentUser, auth } from "@clerk/nextjs"
+import { currentUser } from "@clerk/nextjs"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import React from "react"

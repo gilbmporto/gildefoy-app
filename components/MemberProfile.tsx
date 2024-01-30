@@ -1,13 +1,13 @@
 "use server"
 import React from "react"
 import { UserButton, auth, currentUser } from "@clerk/nextjs"
-import { createNewUser } from "@/utils/actions"
+import { createNewUser, fetchOrGenerateTokens } from "@/utils/actions"
 import { JsonArray } from "@prisma/client/runtime/library"
 
 type User = {
   id: string
-  firstName: string
-  lastName: string
+  firstName: string | null
+  lastName: string | null
   email: string
   tours?: JsonArray
 }
@@ -22,7 +22,11 @@ export default async function MemberProfile() {
     email: user?.emailAddresses[0].emailAddress!,
   }
 
-  // await createNewUser(newUser)
+  const createdUser = await createNewUser(newUser)
+
+  if (typeof createdUser !== "string") {
+    await fetchOrGenerateTokens(createdUser?.id)
+  }
 
   return (
     <div className="px-4 flex items-center gap-3.5">

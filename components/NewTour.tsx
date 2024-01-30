@@ -5,12 +5,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   // CompleteTourData,
   createNewTour,
+  fetchUserTokensById,
   generateTourResponse,
   getExistingTour,
-  testCreateNewTour,
+  subtractTokensFromUser,
 } from "@/utils/actions"
 import toast from "react-hot-toast"
-import { useUser } from "@clerk/nextjs"
+import { useAuth, useUser } from "@clerk/nextjs"
 
 export const dynamic = "force-dynamic"
 
@@ -25,6 +26,7 @@ export type TourData = {
 
 export default function NewTour() {
   const queryClient = useQueryClient()
+  const { userId } = useAuth()
   const {
     mutate,
     isPending,
@@ -35,27 +37,34 @@ export default function NewTour() {
       if (existentTour) {
         return existentTour
       }
-      const newTour = await generateTourResponse(data)
-      console.log("====== NEW TOUR ======")
-      console.log(newTour)
-      console.log("====== NEW TOUR ======")
-      await wait(2000)
-      if (newTour) {
-        const response = await createNewTour(newTour)
+
+      const currentUserTokens = await fetchUserTokensById(userId!)
+
+      if (currentUserTokens && currentUserTokens < 300) {
+        toast.error("Not enough tokens!")
+        return
+      }
+
+      const tourAndTokens = await generateTourResponse(data)
+
+      if (!tourAndTokens?.tour) {
+        toast.error("This city is not located in this country or doesn't exist")
+        return null
+      }
+
+      if (tourAndTokens?.tour!) {
+        const response = await createNewTour(tourAndTokens.tour)
         console.log(response)
         queryClient.invalidateQueries({ queryKey: ["tours"] })
+        const subtractedTokens = await subtractTokensFromUser(
+          userId!,
+          tourAndTokens?.tokens!
+        )
+        toast.success(`${subtractedTokens?.tokens!} tokens remaining!`)
         return response
       }
-      toast.error("This city is not located in this country or doesn't exist")
-      return null
     },
   })
-
-  async function wait(time: number) {
-    return new Promise((resolve) => setTimeout(resolve, time))
-  }
-
-  const { user } = useUser()
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -73,7 +82,7 @@ export default function NewTour() {
 
     const destinationWithUserId = {
       ...destination,
-      userId: user?.id,
+      userId,
     } as TourData
 
     console.log(destinationWithUserId)

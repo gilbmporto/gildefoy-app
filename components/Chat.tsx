@@ -1,8 +1,10 @@
 "use client"
 import { generateChatResponse } from "@/utils/actions"
+import { useAuth } from "@clerk/nextjs"
 import { useMutation } from "@tanstack/react-query"
 import { ChatCompletionMessage } from "openai/resources/index.mjs"
 import React, { useState } from "react"
+import { IoIosWarning } from "react-icons/io"
 import toast from "react-hot-toast"
 
 export type Message = {
@@ -10,24 +12,60 @@ export type Message = {
   content: string
 }
 
+type ChatResponse = {
+  message: ChatCompletionMessage
+  tokens: number
+}
+
 export default function Chat() {
   const [text, setText] = useState("")
-  const [messages, setMessages] = useState<Message[]>([])
 
-  const { mutate: createMessage, isPending } = useMutation<
-    ChatCompletionMessage | null,
-    Error,
-    Message
-  >({
-    mutationFn: (query: Message) => generateChatResponse([...messages, query]),
-    onSuccess: (data: ChatCompletionMessage | null) => {
+  const [messages, setMessages] = useState<Message[]>([])
+  const { userId } = useAuth()
+
+  const {
+    mutate: createMessage,
+    isPending,
+    data,
+  } = useMutation<ChatResponse | null, Error, Message>({
+    mutationFn: (query: Message) =>
+      generateChatResponse([...messages, query], userId!),
+    onSuccess: (data: ChatResponse | null) => {
       if (!data) {
         toast.error("Something went wrong")
         return
+      } else if (
+        data?.message?.content === "You don't have enough tokens left!"
+      ) {
+        toast.custom((t) => (
+          <div
+            className={`${
+              t.visible ? "animate-enter" : "animate-leave"
+            } max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}
+          >
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <IoIosWarning
+                    className="h-10 w-10 text-yellow-500"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-900">Warning</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    You don't have enough tokens left!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+        return
       } else {
         const newMessage: Message = {
-          role: data.role!,
-          content: data?.content!,
+          role: data.message.role!,
+          content: data?.message.content!,
         }
         setMessages((prevState) => [...prevState, newMessage])
       }
@@ -42,10 +80,11 @@ export default function Chat() {
     setText("")
   }
 
-  console.log(messages)
-
   return (
     <div className="min-h-[calc(100vh-5rem)] grid grid-rows-[1fr,auto]">
+      {data?.tokens && (
+        <span className="ml-4 mb-4">Tokens left: {data.tokens}</span>
+      )}
       {messages.length === 0 ? (
         <h2 className="text-xl p-4">Start your conversation down below...</h2>
       ) : null}
