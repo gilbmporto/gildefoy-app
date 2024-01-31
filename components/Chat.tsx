@@ -87,7 +87,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] grid grid-rows-[1fr,auto]">
+    <div className="min-h-[calc(100vh-6rem)] sm:min-h-[calc(100vh-5rem)] grid grid-rows-[1fr,auto]">
       <div className=" max-w-md">
         {queryIsPending ? null : data ? (
           <div className="border border-slate-900 bg-base-300 p-4 rounded-xl shadow-md">

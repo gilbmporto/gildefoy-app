@@ -13,7 +13,9 @@ export default function layout({ children }: { children: React.ReactNode }) {
         >
           <FaBarsStaggered className="w-8 h-8 text-primary"></FaBarsStaggered>
         </label>
-        <div className="bg-base-200 px-8 py-10 min-h-screen">{children}</div>
+        <div className="bg-base-200 px-8 py-10 min-h-screen pt-20 sm:pt-10">
+          {children}
+        </div>
       </div>
       <div className="drawer-side">
         <label

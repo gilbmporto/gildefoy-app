@@ -535,7 +535,7 @@ The Response should be in the following JSON format:
 }
 "stops" property should include only five stops and each stop MUST be only a string.
 If you can't find info on exact ${city}, or ${city} does not exist, or it's population is less than 1, or it is not located in the following ${country}, return { "tour": null }, with no additional characters.
-Also, if the country is "Brazil" or "Brasil", return the answer in brazilian portuguese`
+Also, if the country is "Brazil" or "Brasil", return the answer in language brazilian portuguese (PT-BR)`
 
   try {
     const response = await openai.chat.completions.create({
