@@ -6,7 +6,7 @@ import ToursList from "./ToursList"
 import { useUser } from "@clerk/nextjs"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 30
+export const maxDuration = 45
 
 export default function ToursPage() {
   const [searchCity, setSearchCity] = useState("")

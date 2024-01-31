@@ -13,7 +13,7 @@ import toast from "react-hot-toast"
 import { useAuth } from "@clerk/nextjs"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 30
+export const maxDuration = 45
 
 export type TourData = {
   city: string

@@ -8,9 +8,6 @@ import { User } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { ChatCompletionMessage } from "openai/resources/index.mjs"
 
-export const dynamic = "force-dynamic"
-export const maxDuration = 45
-
 const openAIModels = {
   gpt35: "gpt-3.5-turbo-1106",
   gpt4: "gpt-4-1106-preview",
