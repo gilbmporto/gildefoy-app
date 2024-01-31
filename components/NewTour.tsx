@@ -60,7 +60,7 @@ export default function NewTour() {
           Math.floor(Date.now() / 1000) - timeItStarted
         )
 
-        await wait(20)
+        // await wait(20)
 
         const tourAndTokens = await generateTourResponse(data)
 
@@ -85,7 +85,7 @@ export default function NewTour() {
           )
           toast.success(`${subtractedTokens?.tokens!} tokens remaining!`)
           console.log(
-            "Time required: ",
+            "Time required to generate complete GPT response: ",
             Math.floor(Date.now() / 1000) - timeItStarted
           )
           return response
@@ -115,7 +115,6 @@ export default function NewTour() {
       userId,
     } as TourData
 
-    console.log(destinationWithUserId)
     console.log("Now we're going to mutate...")
     mutate(destinationWithUserId)
   }
