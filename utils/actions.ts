@@ -55,10 +55,6 @@ export type CompleteTourData = {
   userId: string
 }
 
-export const wait = (time: number) => {
-  return new Promise((resolve) => setTimeout(resolve, time))
-}
-
 const openai = new OpenAI({
   apiKey: process.env.GILDEFOY_GPT_API_KEY,
 })
