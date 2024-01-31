@@ -3,8 +3,8 @@ import React from "react"
 
 export default function TourInfo({ tour }: { tour: TourJSON }) {
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-5xl font-semibold mb-4">{tour.title}</h1>
+    <div className="max-w-4xl">
+      <h1 className="text-5xl font-semibold mb-6">{tour.title}</h1>
       <p className="leading-relaxed mb-4">{tour.description}</p>
       <div className="join join-vertical sm:join-horizontal w-full">
         <div className="join-item w-full flex items-center gap-2">

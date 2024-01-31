@@ -8,6 +8,9 @@ import { User } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import { ChatCompletionMessage } from "openai/resources/index.mjs"
 
+export const dynamic = "force-dynamic"
+export const maxDuration = 45
+
 const openAIModels = {
   gpt35: "gpt-3.5-turbo-1106",
   gpt4: "gpt-4-1106-preview",
@@ -208,7 +211,7 @@ export async function incrementUserTokens(userId: string) {
 
       if (tokensRecord.TokensEndedTimestamp) {
         const daysPassed = Math.floor(
-          (Date.now() / 1000 - tokensRecord.TokensEndedTimestamp) /
+          (Math.floor(Date.now() / 1000) - tokensRecord.TokensEndedTimestamp) /
             (60 * 60 * 24)
         )
         multiplier = Math.min(daysPassed, maxMultiplier)
@@ -222,7 +225,7 @@ export async function incrementUserTokens(userId: string) {
         },
         data: {
           tokens: {
-            set: tokensToIncrement,
+            increment: tokensToIncrement,
           },
           tokensEnded: false,
         },
@@ -253,7 +256,7 @@ export async function allowToIncrementUserTokens(userId: string) {
       tokens.tokens < 300 &&
       tokens.tokensEnded &&
       tokens.TokensEndedTimestamp &&
-      tokens.TokensEndedTimestamp + 86400 < Date.now() / 1000
+      tokens.TokensEndedTimestamp + 86400 < Math.floor(Date.now() / 1000)
     ) {
       return true
     } else {
@@ -293,7 +296,7 @@ export async function subtractTokensFromUser(userId: string, amount: number) {
           },
           data: {
             tokensEnded: true,
-            TokensEndedTimestamp: Date.now() / 1000,
+            TokensEndedTimestamp: Math.floor(Date.now() / 1000),
           },
         })
 
@@ -534,10 +537,10 @@ The Response should be in the following JSON format:
     "country": "${country}",
     "title": "title of the tour",
     "description": "short description of the city and tour",
-    "stops": ["short paragraph on the stop 1 ", "short paragraph on the stop 2","short paragraph on the stop 3", "short paragraph on the stop 4", "short paragraph on the stop 5"]
+    "stops": ["stop name", "stop name", "stop name"]
   }
 }
-"stops" property should include only five stops.
+"stops" property should include only three stops and each stop MUST be only a string.
 If you can't find info on exact ${city}, or ${city} does not exist, or it's population is less than 1, or it is not located in the following ${country}, return { "tour": null }, with no additional characters.
 Also, if the country is "Brazil" or "Brasil", return the answer in brazilian portuguese`
 
@@ -597,5 +600,26 @@ Also, if the country is "Brazil" or "Brasil", return the answer in brazilian por
   } catch (error: any) {
     console.log(`${error.name}: ${error.message}`)
     return null
+  }
+}
+
+export async function deleteTour(tourId: string) {
+  try {
+    await prisma.userTour.deleteMany({
+      where: {
+        tourId: tourId,
+      },
+    })
+
+    await prisma.tour.delete({
+      where: {
+        id: tourId,
+      },
+    })
+    console.log(`Tour with ID ${tourId} deleted successfully.`)
+  } catch (error) {
+    console.error("Error deleting tour:", error)
+  } finally {
+    await prisma.$disconnect()
   }
 }

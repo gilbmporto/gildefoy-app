@@ -1,7 +1,7 @@
 "use client"
-import { generateChatResponse } from "@/utils/actions"
+import { fetchUserTokensById, generateChatResponse } from "@/utils/actions"
 import { useAuth } from "@clerk/nextjs"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { ChatCompletionMessage } from "openai/resources/index.mjs"
 import React, { useState } from "react"
 import { IoIosWarning } from "react-icons/io"
@@ -19,17 +19,23 @@ type ChatResponse = {
 
 export default function Chat() {
   const [text, setText] = useState("")
-
   const [messages, setMessages] = useState<Message[]>([])
   const { userId } = useAuth()
+
+  const { data: queryData, isPending: queryIsPending } = useQuery({
+    queryKey: ["chat", userId],
+    queryFn: async () => {
+      return await fetchUserTokensById(userId!)
+    },
+  })
 
   const {
     mutate: createMessage,
     isPending,
     data,
   } = useMutation<ChatResponse | null, Error, Message>({
-    mutationFn: (query: Message) =>
-      generateChatResponse([...messages, query], userId!),
+    mutationFn: async (query: Message) =>
+      await generateChatResponse([...messages, query], userId!),
     onSuccess: (data: ChatResponse | null) => {
       if (!data) {
         toast.error("Something went wrong")
@@ -82,13 +88,21 @@ export default function Chat() {
 
   return (
     <div className="min-h-[calc(100vh-5rem)] grid grid-rows-[1fr,auto]">
-      {data?.tokens && (
-        <span className="ml-4 mb-4">Tokens left: {data.tokens}</span>
-      )}
-      {messages.length === 0 ? (
-        <h2 className="text-xl p-4">Start your conversation down below...</h2>
-      ) : null}
-      <div>
+      <div className=" max-w-md">
+        {queryIsPending ? null : data ? (
+          <div className="border border-slate-900 bg-base-300 p-4 rounded-xl shadow-md">
+            <span className="ml-4 mb-4">Tokens left: {data.tokens}</span>
+          </div>
+        ) : (
+          <div className="border border-slate-900 bg-base-300 p-4 rounded-xl shadow-md">
+            <span className="ml-4 mb-4">Tokens left: {queryData}</span>
+          </div>
+        )}
+        {messages.length === 0 ? (
+          <h2 className="text-xl p-4">Start your conversation down below...</h2>
+        ) : null}
+      </div>
+      <div className="py-10 mb-5">
         {messages.map(({ role, content }, index) => {
           const avatar = role == "user" ? "👤" : "🧞"
           const background = role === "user" ? "bg-base-200" : "bg-base-100"
@@ -102,7 +116,7 @@ export default function Chat() {
             </div>
           )
         })}
-        {isPending ? <span className="loading"></span> : null}
+        {isPending ? <span className="loading mt-5"></span> : null}
       </div>
       <form onSubmit={handleSubmit} className="max-w-4xl pt-12">
         <div className="join w-full">

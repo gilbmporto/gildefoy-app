@@ -7,6 +7,10 @@ const links = [
     label: "home",
   },
   {
+    href: "/chat",
+    label: "chat",
+  },
+  {
     href: "/tours",
     label: "tours",
   },

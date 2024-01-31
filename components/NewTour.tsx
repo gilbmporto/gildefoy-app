@@ -1,9 +1,8 @@
 "use client"
-import React, { useEffect } from "react"
+import React from "react"
 import TourInfo from "./TourInfo"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
-  // CompleteTourData,
   createNewTour,
   fetchUserTokensById,
   generateTourResponse,
@@ -11,9 +10,10 @@ import {
   subtractTokensFromUser,
 } from "@/utils/actions"
 import toast from "react-hot-toast"
-import { useAuth, useUser } from "@clerk/nextjs"
+import { useAuth } from "@clerk/nextjs"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 30
 
 export type TourData = {
   city: string
@@ -33,6 +33,7 @@ export default function NewTour() {
     data: tour,
   } = useMutation({
     mutationFn: async (data: TourData) => {
+      let timeItStarted = Math.floor(Date.now() / 1000)
       const existentTour = await getExistingTour(data)
       if (existentTour) {
         return existentTour
@@ -42,13 +43,26 @@ export default function NewTour() {
 
       if (currentUserTokens && currentUserTokens < 300) {
         toast.error("Not enough tokens!")
+        console.log(
+          "Time required to display that tokens have ended: ",
+          Math.floor(Date.now() / 1000) - timeItStarted
+        )
         return
       }
+
+      console.log(
+        "Time required to check for existing tour and fetch user tokens: ",
+        Math.floor(Date.now() / 1000) - timeItStarted
+      )
 
       const tourAndTokens = await generateTourResponse(data)
 
       if (!tourAndTokens?.tour) {
         toast.error("This city is not located in this country or doesn't exist")
+        console.log(
+          "Time required to go until the end: ",
+          Math.floor(Date.now() / 1000) - timeItStarted
+        )
         return null
       }
 
@@ -61,6 +75,10 @@ export default function NewTour() {
           tourAndTokens?.tokens!
         )
         toast.success(`${subtractedTokens?.tokens!} tokens remaining!`)
+        console.log(
+          "Time required: ",
+          Math.floor(Date.now() / 1000) - timeItStarted
+        )
         return response
       }
     },
@@ -169,13 +187,6 @@ export default function NewTour() {
             Generate tour
           </button>
         </div>
-        {/* <button
-          type="button"
-          className="btn btn-secondary mt-4"
-          onClick={handleClick}
-        >
-          TestCreateNewUser
-        </button> */}
       </form>
       <div className="mt-16">{tour ? <TourInfo tour={tour} /> : null}</div>
     </>

@@ -5,6 +5,9 @@ import React, { useState } from "react"
 import ToursList from "./ToursList"
 import { useUser } from "@clerk/nextjs"
 
+export const dynamic = "force-dynamic"
+export const maxDuration = 30
+
 export default function ToursPage() {
   const [searchCity, setSearchCity] = useState("")
   const [searchCountry, setSearchCountry] = useState("")
@@ -49,6 +52,7 @@ export default function ToursPage() {
           </button>
         </div>
       </form>
+
       {isPending ? (
         <span className="loading loading-lg"></span>
       ) : (
