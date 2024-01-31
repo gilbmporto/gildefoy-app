@@ -60,7 +60,7 @@ export default function NewTour() {
           Math.floor(Date.now() / 1000) - timeItStarted
         )
 
-        await wait(10)
+        await wait(20)
 
         const tourAndTokens = await generateTourResponse(data)
 
