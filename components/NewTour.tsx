@@ -33,53 +33,59 @@ export default function NewTour() {
     data: tour,
   } = useMutation({
     mutationFn: async (data: TourData) => {
-      let timeItStarted = Math.floor(Date.now() / 1000)
-      const existentTour = await getExistingTour(data)
-      if (existentTour) {
-        return existentTour
-      }
+      try {
+        let timeItStarted = Math.floor(Date.now() / 1000)
+        const existentTour = await getExistingTour(data)
+        if (existentTour) {
+          return existentTour
+        }
 
-      const currentUserTokens = await fetchUserTokensById(userId!)
+        const currentUserTokens = await fetchUserTokensById(userId!)
 
-      if (currentUserTokens && currentUserTokens < 300) {
-        toast.error("Not enough tokens!")
+        if (currentUserTokens && currentUserTokens < 300) {
+          toast.error("Not enough tokens!")
+          console.log(
+            "Time required to display that tokens have ended: ",
+            Math.floor(Date.now() / 1000) - timeItStarted
+          )
+          return
+        }
+
         console.log(
-          "Time required to display that tokens have ended: ",
+          "Time required to check for existing tour and fetch user tokens: ",
           Math.floor(Date.now() / 1000) - timeItStarted
         )
-        return
-      }
 
-      console.log(
-        "Time required to check for existing tour and fetch user tokens: ",
-        Math.floor(Date.now() / 1000) - timeItStarted
-      )
+        const tourAndTokens = await generateTourResponse(data)
 
-      const tourAndTokens = await generateTourResponse(data)
+        if (!tourAndTokens?.tour) {
+          toast.error(
+            "This city is not located in this country or doesn't exist"
+          )
+          console.log(
+            "Time required to go until the end: ",
+            Math.floor(Date.now() / 1000) - timeItStarted
+          )
+          return null
+        }
 
-      if (!tourAndTokens?.tour) {
-        toast.error("This city is not located in this country or doesn't exist")
-        console.log(
-          "Time required to go until the end: ",
-          Math.floor(Date.now() / 1000) - timeItStarted
-        )
-        return null
-      }
-
-      if (tourAndTokens?.tour!) {
-        const response = await createNewTour(tourAndTokens.tour)
-        console.log(response)
-        queryClient.invalidateQueries({ queryKey: ["tours"] })
-        const subtractedTokens = await subtractTokensFromUser(
-          userId!,
-          tourAndTokens?.tokens!
-        )
-        toast.success(`${subtractedTokens?.tokens!} tokens remaining!`)
-        console.log(
-          "Time required: ",
-          Math.floor(Date.now() / 1000) - timeItStarted
-        )
-        return response
+        if (tourAndTokens?.tour!) {
+          const response = await createNewTour(tourAndTokens.tour)
+          console.log(response)
+          queryClient.invalidateQueries({ queryKey: ["tours"] })
+          const subtractedTokens = await subtractTokensFromUser(
+            userId!,
+            tourAndTokens?.tokens!
+          )
+          toast.success(`${subtractedTokens?.tokens!} tokens remaining!`)
+          console.log(
+            "Time required: ",
+            Math.floor(Date.now() / 1000) - timeItStarted
+          )
+          return response
+        }
+      } catch (error: any) {
+        console.log(`${error.name}: ${error.message}`)
       }
     },
   })
