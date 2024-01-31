@@ -586,13 +586,9 @@ Also, if the country is "Brazil" or "Brasil", return the answer in brazilian por
     }
 
     return { tour: tourFinalData, tokens: response.usage?.total_tokens }
-
-    // const newTour = await createNewTour(tourFinalData)
-
-    // return newTour as TourJSON
   } catch (error: any) {
     console.log(`${error.name}: ${error.message}`)
-    return null
+    return error
   }
 }
 
