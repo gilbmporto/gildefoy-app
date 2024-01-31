@@ -24,6 +24,10 @@ export type TourData = {
   userId: string
 }
 
+const wait = (seconds: number) => {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
+}
+
 export default function NewTour() {
   const queryClient = useQueryClient()
   const { userId } = useAuth()
@@ -55,6 +59,8 @@ export default function NewTour() {
           "Time required to check for existing tour and fetch user tokens: ",
           Math.floor(Date.now() / 1000) - timeItStarted
         )
+
+        await wait(10)
 
         const tourAndTokens = await generateTourResponse(data)
 
