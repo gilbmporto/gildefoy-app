@@ -24,9 +24,9 @@ export type TourData = {
   userId: string
 }
 
-const wait = (seconds: number) => {
-  return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
-}
+// const wait = (seconds: number) => {
+//   return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
+// }
 
 export default function NewTour() {
   const queryClient = useQueryClient()
@@ -60,7 +60,7 @@ export default function NewTour() {
           Math.floor(Date.now() / 1000) - timeItStarted
         )
 
-        await wait(20)
+        // await wait(20)
 
         const tourAndTokens = await generateTourResponse(data)
 
@@ -69,7 +69,7 @@ export default function NewTour() {
             "This city is not located in this country or doesn't exist"
           )
           console.log(
-            "Time required to go until the end: ",
+            "Time required to go until unexistent city or country: ",
             Math.floor(Date.now() / 1000) - timeItStarted
           )
           return null
