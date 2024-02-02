@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   description: "Your expert companion for all times",
 }
 
+export const dynamic = "force-dynamic"
+export const maxDuration = 60
+
 export default function RootLayout({
   children,
 }: {
